@@ -153,20 +153,6 @@ func (iter *Iterator) WhatIsNext() ValueType {
 	return valueType
 }
 
-func (iter *Iterator) skipWhitespacesWithoutLoadMore() bool {
-	for i := iter.head; i < iter.tail; i++ {
-		c := iter.buf[i]
-		switch c {
-		case ' ', '\n', '\t', '\r':
-			continue
-		}
-		iter.head = i
-		return false
-	}
-	iter.head = iter.tail
-	return true
-}
-
 func (iter *Iterator) isObjectEnd() bool {
 	c := iter.nextToken()
 	if c == ',' {
@@ -193,6 +179,24 @@ func (iter *Iterator) nextToken() byte {
 		}
 		if !iter.loadMore() {
 			return 0
+		}
+	}
+}
+
+func (iter *Iterator) skipWhitespace() {
+	for {
+		for i := iter.head; i < iter.tail; i++ {
+			c := iter.buf[i]
+			switch c {
+			case ' ', '\n', '\t', '\r':
+				continue
+			}
+			iter.head = i
+			return
+		}
+		if !iter.loadMore() {
+			iter.head = iter.tail
+			return
 		}
 	}
 }
@@ -275,9 +279,7 @@ func (iter *Iterator) loadMore() bool {
 		} else {
 			iter.head = 0
 			iter.tail = n
-			if !iter.skipWhitespacesWithoutLoadMore() {
-				return true
-			}
+			return true
 		}
 	}
 }
