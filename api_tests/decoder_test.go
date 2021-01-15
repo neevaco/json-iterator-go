@@ -3,10 +3,12 @@ package test
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/json-iterator/go"
-	"github.com/stretchr/testify/require"
+	"io"
 	"io/ioutil"
 	"testing"
+
+	jsoniter "github.com/json-iterator/go"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_disallowUnknownFields(t *testing.T) {
@@ -20,27 +22,52 @@ func Test_disallowUnknownFields(t *testing.T) {
 
 func Test_new_decoder(t *testing.T) {
 	should := require.New(t)
-	decoder1 := json.NewDecoder(bytes.NewBufferString(`[1][2]`))
-	decoder2 := jsoniter.NewDecoder(bytes.NewBufferString(`[1][2]`))
-	arr1 := []int{}
-	should.Nil(decoder1.Decode(&arr1))
-	should.Equal([]int{1}, arr1)
-	arr2 := []int{}
-	should.True(decoder1.More())
-	buffered, _ := ioutil.ReadAll(decoder1.Buffered())
-	should.Equal("[2]", string(buffered))
-	should.Nil(decoder2.Decode(&arr2))
-	should.Equal([]int{1}, arr2)
-	should.True(decoder2.More())
-	buffered, _ = ioutil.ReadAll(decoder2.Buffered())
-	should.Equal("[2]", string(buffered))
+	{
+		decoder := json.NewDecoder(bytes.NewBufferString(`[1][2]`))
+		arr := []int{}
+		should.Nil(decoder.Decode(&arr))
+		should.Equal([]int{1}, arr)
+		should.True(decoder.More())
+		buffered, _ := ioutil.ReadAll(decoder.Buffered())
+		should.Equal("[2]", string(buffered))
+		should.Nil(decoder.Decode(&arr))
+		should.Equal([]int{2}, arr)
+		should.False(decoder.More())
+	}
+	{
+		decoder := jsoniter.NewDecoder(bytes.NewBufferString(`[1][2]`))
+		arr := []int{}
+		should.Nil(decoder.Decode(&arr))
+		should.Equal([]int{1}, arr)
+		should.True(decoder.More())
+		buffered, _ := ioutil.ReadAll(decoder.Buffered())
+		should.Equal("[2]", string(buffered))
+		should.Nil(decoder.Decode(&arr))
+		should.Equal([]int{2}, arr)
+		should.False(decoder.More())
+	}
+}
 
-	should.Nil(decoder1.Decode(&arr1))
-	should.Equal([]int{2}, arr1)
-	should.False(decoder1.More())
-	should.Nil(decoder2.Decode(&arr2))
-	should.Equal([]int{2}, arr2)
-	should.False(decoder2.More())
+func Test_new_decoder_whitespace(t *testing.T) {
+	should := require.New(t)
+	{
+		decoder := json.NewDecoder(bytes.NewBufferString(`  [1]  [2]  `))
+		arr := []int{}
+		should.Nil(decoder.Decode(&arr))
+		should.Equal([]int{1}, arr)
+		should.Nil(decoder.Decode(&arr))
+		should.Equal([]int{2}, arr)
+		should.Equal(io.EOF, decoder.Decode(&arr))
+	}
+	{
+		decoder := jsoniter.NewDecoder(bytes.NewBufferString(`  [1]  [2]  `))
+		arr := []int{}
+		should.Nil(decoder.Decode(&arr))
+		should.Equal([]int{1}, arr)
+		should.Nil(decoder.Decode(&arr))
+		should.Equal([]int{2}, arr)
+		should.Equal(io.EOF, decoder.Decode(&arr))
+	}
 }
 
 func Test_use_number(t *testing.T) {
